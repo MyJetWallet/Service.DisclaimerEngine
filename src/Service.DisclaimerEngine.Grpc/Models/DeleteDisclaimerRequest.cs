@@ -1,6 +1,9 @@
+using System.Runtime.Serialization;
+
 namespace Service.DisclaimerEngine.Grpc.Models;
 
+[DataContract]
 public class DeleteDisclaimerRequest
 {
-    public string DisclaimerId { get; set; }
+    [DataMember(Order = 1)] public string DisclaimerId { get; set; }
 }
