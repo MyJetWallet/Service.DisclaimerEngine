@@ -19,19 +19,24 @@ namespace Service.DisclaimerEngine.Services
         private readonly DbContextOptionsBuilder<DatabaseContext> _dbContextOptionsBuilder;
         private readonly ILogger<DisclaimerService> _logger;
         private readonly ContextRepository _repository;
+        private readonly DisclaimerRepository _disclaimerRepository;
+        private readonly ProfilesRepository _profilesRepository;
+
         private readonly ITemplateClient _templateClient;
         
-        public DisclaimerService(DbContextOptionsBuilder<DatabaseContext> dbContextOptionsBuilder, ILogger<DisclaimerService> logger, ContextRepository repository, ITemplateClient templateClient)
+        public DisclaimerService(DbContextOptionsBuilder<DatabaseContext> dbContextOptionsBuilder, ILogger<DisclaimerService> logger, ContextRepository repository, ITemplateClient templateClient, DisclaimerRepository disclaimerRepository, ProfilesRepository profilesRepository)
         {
             _dbContextOptionsBuilder = dbContextOptionsBuilder;
             _logger = logger;
             _repository = repository;
             _templateClient = templateClient;
+            _disclaimerRepository = disclaimerRepository;
+            _profilesRepository = profilesRepository;
         }
 
         public async Task<OperationResponse> SubmitAnswers(SubmitAnswersRequest request)
         {
-            //_logger.LogInformation("Creating disclaimer {disclaimer}", disclaimer);
+            _logger.LogInformation("Submitting answers {request}", request);
             try
             {
                 await using var context = new DatabaseContext(_dbContextOptionsBuilder.Options);
@@ -45,6 +50,7 @@ namespace Service.DisclaimerEngine.Services
                 };
 
                 await _repository.UpsertContexts(new () {disclaimerContext});
+                await _profilesRepository.ClearCache(request.ClientId);
                 return new OperationResponse()
                 {
                     IsSuccess = true
@@ -52,7 +58,7 @@ namespace Service.DisclaimerEngine.Services
             }
             catch (Exception e)
             {
-                //_logger.LogError(e, "When creating disclaimer {disclaimer}", disclaimer);
+                _logger.LogError(e, "When submitting answers {request}", request);
                 return new OperationResponse()
                 {
                     IsSuccess = false, 
@@ -63,18 +69,18 @@ namespace Service.DisclaimerEngine.Services
 
         public async Task<HasDisclaimersResponse> HasDisclaimers(HasDisclaimersRequest request)
         {
-            //_logger.LogInformation("Creating disclaimer {disclaimer}", disclaimer);
+            _logger.LogInformation("Checking disclaimers {request}", request);
             try
             {
-                var disclaimerIds = await _repository.GetDisclaimerIdsWithoutClient(request.ClientId);
+                var profile = await _profilesRepository.GetOrCreateProfile(request.ClientId);
                 return new HasDisclaimersResponse()
                 {
-                    HasDisclaimers = disclaimerIds.Any()
+                    HasDisclaimers = profile.AvailableDisclaimers.Any()
                 };
             }
             catch (Exception e)
             {
-                //_logger.LogError(e, "When creating disclaimer {disclaimer}", disclaimer);
+                _logger.LogError(e, "When checking disclaimers {request}", request);
                 return new HasDisclaimersResponse()
                 {
                     HasDisclaimers = false, 
@@ -84,20 +90,13 @@ namespace Service.DisclaimerEngine.Services
         
         public async Task<GetDisclaimersResponse> GetDisclaimers(GetDisclaimersRequest request)
         {
-            //_logger.LogInformation("Creating disclaimer {disclaimer}", disclaimer);
+            _logger.LogInformation("Getting disclaimers {request}", request);
             try
             {
-                var disclaimerIds = await _repository.GetDisclaimerIdsWithoutClient(request.ClientId);
-
-                await using var context = new DatabaseContext(_dbContextOptionsBuilder.Options);
-                var disclaimers = await context.Disclaimers.Where(t => disclaimerIds.Contains(t.Id)).Include(t => t.Questions).ToListAsync();
-
-                var groups = disclaimers.GroupBy(t => t.Type);
-
-                var selectedDisclaimer = groups.Select(t => t.MaxBy(t => t.CreationTs)).ToList();
+                var disclaimers = await _disclaimerRepository.GetDisclaimersForUser(request.ClientId);
 
                 var disclaimerModels = new List<DisclaimerModel>();
-                foreach (var question in selectedDisclaimer)
+                foreach (var question in disclaimers)
                 {
                     disclaimerModels.Add(await GetDisclaimerModel(question, request.Lang, request.Brand));
                 }
@@ -109,12 +108,13 @@ namespace Service.DisclaimerEngine.Services
             }
             catch (Exception e)
             {
-                //_logger.LogError(e, "When creating disclaimer {disclaimer}", disclaimer);
+                _logger.LogError(e, "When getting disclaimers {request}", request);
                 return new GetDisclaimersResponse()
                 {
                     Disclaimers = new List<DisclaimerModel>(), 
                 };
             }
+            
             //locals
             async Task<DisclaimerModel> GetDisclaimerModel(Disclaimer disclaimer, string lang, string brand)
             {

@@ -18,12 +18,14 @@ namespace Service.DisclaimerEngine.Services
         
         private readonly DbContextOptionsBuilder<DatabaseContext> _dbContextOptionsBuilder;
         private readonly ILogger<DisclaimerManagerService> _logger;
+        private readonly ProfilesRepository _profilesRepository;
 
         
-        public DisclaimerManagerService(DbContextOptionsBuilder<DatabaseContext> dbContextOptionsBuilder, ILogger<DisclaimerManagerService> logger)
+        public DisclaimerManagerService(DbContextOptionsBuilder<DatabaseContext> dbContextOptionsBuilder, ILogger<DisclaimerManagerService> logger, ProfilesRepository profilesRepository)
         {
             _dbContextOptionsBuilder = dbContextOptionsBuilder;
             _logger = logger;
+            _profilesRepository = profilesRepository;
         }
 
         public async Task<GetContextResponse> GetContexts(GetContextsRequest request)
@@ -89,6 +91,7 @@ namespace Service.DisclaimerEngine.Services
                     question.DisclaimerId = disclaimer.Id;
                 }
                 await context.UpsertAsync(new[] {disclaimer});
+                await _profilesRepository.ClearCache();
                 return new OperationResponse()
                 {
                     IsSuccess = true
@@ -121,7 +124,7 @@ namespace Service.DisclaimerEngine.Services
                 context.Questions.RemoveRange(disclaimer.Questions);
                 context.Disclaimers.Remove(disclaimer);
                 await context.SaveChangesAsync();
-                
+                await _profilesRepository.ClearCache();
                 return new OperationResponse()
                 {
                     IsSuccess = true

@@ -21,10 +21,13 @@ namespace Service.DisclaimerEngine.Modules
 
             builder.RegisterMyNoSqlWriter<DisclaimerContextNoSqlEntity>(()=>Program.Settings.MyNoSqlWriterUrl,
                 DisclaimerContextNoSqlEntity.TableName);
+            builder.RegisterMyNoSqlWriter<DisclaimerProfileNoSqlEntity>(()=>Program.Settings.MyNoSqlWriterUrl,
+                DisclaimerProfileNoSqlEntity.TableName);
             builder.RegisterType<ContextRepository>().AsSelf().SingleInstance();
-
-            builder.RegisterType<DisclaimerService>().As<IDisclaimerService>().SingleInstance();
+            builder.RegisterType<DisclaimerRepository>().AsSelf().SingleInstance();
+            builder.RegisterType<ProfilesRepository>().AsSelf().SingleInstance();
             
+            builder.RegisterType<DisclaimerService>().As<IDisclaimerService>().SingleInstance();
             builder.RegisterType<DisclaimerManagerService>().As<IDisclaimerManagerService>().SingleInstance();
         }
     }
