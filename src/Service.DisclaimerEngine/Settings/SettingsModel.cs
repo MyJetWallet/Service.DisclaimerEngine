@@ -31,6 +31,9 @@ namespace Service.DisclaimerEngine.Settings
         
         [YamlProperty("DisclaimerEngine.MessageTemplatesGrpcServiceUrl")]
         public string MessageTemplatesGrpcServiceUrl { get; set; }
+        
+        [YamlProperty("DisclaimerEngine.ClientProfileGrpcServiceUrl")]
+        public string ClientProfileGrpcServiceUrl { get; set; }
 
     }
 }

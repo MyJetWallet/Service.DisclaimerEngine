@@ -4,7 +4,12 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using MyNoSqlServer.Abstractions;
+using Service.ClientProfile.Grpc;
+using Service.ClientProfile.Grpc.Models.Requests;
+using Service.DisclaimerEngine.Domain;
 using Service.DisclaimerEngine.Domain.Models;
+using Service.DisclaimerEngine.Domain.Models.NoSql;
 using Service.DisclaimerEngine.Grpc;
 using Service.DisclaimerEngine.Grpc.Models;
 using Service.DisclaimerEngine.Helpers;
@@ -21,10 +26,11 @@ namespace Service.DisclaimerEngine.Services
         private readonly ContextRepository _repository;
         private readonly DisclaimerRepository _disclaimerRepository;
         private readonly ProfilesRepository _profilesRepository;
-
+        private readonly IMyNoSqlServerDataReader<DisclaimerSettingsNoSqlEntity> _settingsReader;
         private readonly ITemplateClient _templateClient;
+        private readonly IClientProfileService _clientProfileService;
         
-        public DisclaimerService(DbContextOptionsBuilder<DatabaseContext> dbContextOptionsBuilder, ILogger<DisclaimerService> logger, ContextRepository repository, ITemplateClient templateClient, DisclaimerRepository disclaimerRepository, ProfilesRepository profilesRepository)
+        public DisclaimerService(DbContextOptionsBuilder<DatabaseContext> dbContextOptionsBuilder, ILogger<DisclaimerService> logger, ContextRepository repository, ITemplateClient templateClient, DisclaimerRepository disclaimerRepository, ProfilesRepository profilesRepository, IMyNoSqlServerDataReader<DisclaimerSettingsNoSqlEntity> settingsReader, IClientProfileService clientProfileService)
         {
             _dbContextOptionsBuilder = dbContextOptionsBuilder;
             _logger = logger;
@@ -32,6 +38,8 @@ namespace Service.DisclaimerEngine.Services
             _templateClient = templateClient;
             _disclaimerRepository = disclaimerRepository;
             _profilesRepository = profilesRepository;
+            _settingsReader = settingsReader;
+            _clientProfileService = clientProfileService;
         }
 
         public async Task<OperationResponse> SubmitAnswers(SubmitAnswersRequest request)
@@ -48,6 +56,20 @@ namespace Service.DisclaimerEngine.Services
                     Answers = request.Answers,
                     Timestamp = DateTime.UtcNow
                 };
+
+                var marketingAnswer =
+                    request.Answers.FirstOrDefault(t => t.QuestionId == DisclaimerConsts.MarketingQuestionId);
+                
+                if (marketingAnswer != null)
+                {
+                    disclaimerContext.Answers.Remove(marketingAnswer);
+                    if (marketingAnswer.Result)
+                        await _clientProfileService.SetMarketingEmailSettings(new SetMarketingEmailSettingsRequest
+                        {
+                            ClientId = request.ClientId,
+                            IsAllowed = true
+                        });
+                }
 
                 await _repository.UpsertContexts(new () {disclaimerContext});
                 await _profilesRepository.ClearCache(request.ClientId);
@@ -96,9 +118,15 @@ namespace Service.DisclaimerEngine.Services
                 var disclaimers = await _disclaimerRepository.GetDisclaimersForUser(request.ClientId);
 
                 var disclaimerModels = new List<DisclaimerModel>();
+                
+                var profile = await _clientProfileService.GetOrCreateProfile(new GetClientProfileRequest()
+                {
+                    ClientId = request.ClientId
+                });
+
                 foreach (var question in disclaimers)
                 {
-                    disclaimerModels.Add(await GetDisclaimerModel(question, request.Lang, request.Brand));
+                    disclaimerModels.Add(await GetDisclaimerModel(question, request.Lang, request.Brand, (!profile.MarketingEmailAllowed)));
                 }
                 
                 return new GetDisclaimersResponse()
@@ -116,7 +144,7 @@ namespace Service.DisclaimerEngine.Services
             }
             
             //locals
-            async Task<DisclaimerModel> GetDisclaimerModel(Disclaimer disclaimer, string lang, string brand)
+            async Task<DisclaimerModel> GetDisclaimerModel(Disclaimer disclaimer, string lang, string brand, bool addMarketing)
             {
                 var questions = new List<QuestionModel>();
                 foreach (var question in disclaimer.Questions)
@@ -124,6 +152,21 @@ namespace Service.DisclaimerEngine.Services
                     questions.Add(await GetQuestionModel(question, lang, brand));
                 }
 
+                if (disclaimer.ShowMarketingEmailQuestion && addMarketing)
+                {
+                    var settings = _settingsReader.Get(DisclaimerSettingsNoSqlEntity.GeneratePartitionKey(),
+                        DisclaimerSettingsNoSqlEntity.GenerateRowKey());
+                    if (settings != null)
+                    {
+                        questions.Add(new QuestionModel
+                        {
+                            QuestionId = DisclaimerConsts.MarketingQuestionId,
+                            Text = await _templateClient.GetTemplateBody(settings.MarketingEmailTextTemplate, lang, brand),
+                            Required = false,
+                            DefaultState = false
+                        });
+                    }
+                }
                 return new DisclaimerModel
                 {
                     DisclaimerId = disclaimer.Id,

@@ -2,6 +2,7 @@
 using Autofac.Core;
 using Autofac.Core.Registration;
 using MyJetWallet.Sdk.NoSql;
+using Service.ClientProfile.Client;
 using Service.DisclaimerEngine.Domain.Models.NoSql;
 using Service.DisclaimerEngine.Grpc;
 using Service.DisclaimerEngine.Helpers;
@@ -16,9 +17,12 @@ namespace Service.DisclaimerEngine.Modules
         {
             var myNoSqlClient = builder.CreateNoSqlClient((() => Program.Settings.MyNoSqlReaderHostPort));
 
+            builder.RegisterMyNoSqlReader<DisclaimerSettingsNoSqlEntity>(myNoSqlClient, DisclaimerSettingsNoSqlEntity.TableName);
+            
             builder.RegisterMessageTemplatesCachedClient(Program.Settings.MessageTemplatesGrpcServiceUrl,
                 myNoSqlClient);
 
+            builder.RegisterClientProfileClients(myNoSqlClient, Program.Settings.ClientProfileGrpcServiceUrl);
             builder.RegisterMyNoSqlWriter<DisclaimerContextNoSqlEntity>(()=>Program.Settings.MyNoSqlWriterUrl,
                 DisclaimerContextNoSqlEntity.TableName);
             builder.RegisterMyNoSqlWriter<DisclaimerProfileNoSqlEntity>(()=>Program.Settings.MyNoSqlWriterUrl,
