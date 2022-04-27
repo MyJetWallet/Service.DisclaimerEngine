@@ -90,6 +90,8 @@ namespace Service.DisclaimerEngine.Services
                 {
                     question.DisclaimerId = disclaimer.Id;
                 }
+                disclaimer.CreationTs = DateTime.UtcNow;
+                
                 await context.UpsertAsync(new[] {disclaimer});
                 await _profilesRepository.ClearCache();
                 return new OperationResponse()

@@ -11,5 +11,7 @@ namespace Service.DisclaimerEngine.Domain.Models
         [DataMember(Order = 2)]public string ClientId { get; set; }
         [DataMember(Order = 3)]public List<Answer> Answers { get; set; }
         [DataMember(Order = 4)]public DateTime Timestamp { get; set; }
+        [DataMember(Order = 5)]public bool ReplacedWithNewerDisclaimer { get; set; }
+
     }
 }

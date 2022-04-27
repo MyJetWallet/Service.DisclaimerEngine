@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using MyJetWallet.Sdk.Service;
 using MyNoSqlServer.Abstractions;
 using Service.ClientProfile.Grpc;
 using Service.ClientProfile.Grpc.Models.Requests;
@@ -44,11 +45,34 @@ namespace Service.DisclaimerEngine.Services
 
         public async Task<OperationResponse> SubmitAnswers(SubmitAnswersRequest request)
         {
-            _logger.LogInformation("Submitting answers {request}", request);
+            _logger.LogInformation("Submitting answers {request}", request.ToJson());
             try
             {
                 await using var context = new DatabaseContext(_dbContextOptionsBuilder.Options);
+
+                var disclaimer = await context.Disclaimers.Include(t => t.Questions).FirstOrDefaultAsync(t => t.Id == request.DisclaimerId);
+                if (disclaimer == null)
+                    return new OperationResponse()
+                    {
+                        IsSuccess = false,
+                        ErrorText = "DisclaimerNotFound"
+                    };
                 
+                foreach (var answer in request.Answers)
+                {
+                    var question = disclaimer.Questions.FirstOrDefault(t => t.Id == answer.QuestionId);
+                    if (question == null)
+                        continue;
+                
+                    if (question.IsRequired && !answer.Result)
+                        return new OperationResponse()
+                        {
+                            IsSuccess = false,
+                            ErrorText = "AnswerRequired"
+                        };
+                }
+
+                var contexts = new List<DisclaimerContext>();
                 var disclaimerContext = new DisclaimerContext
                 {
                     DisclaimerId = request.DisclaimerId,
@@ -70,8 +94,23 @@ namespace Service.DisclaimerEngine.Services
                             IsAllowed = true
                         });
                 }
+               
+                contexts.Add(disclaimerContext);
+                
+                var oldDisclaimers = await context.Disclaimers.Where(t => t.Id != request.DisclaimerId && t.Type == disclaimer.Type).ToListAsync();
+                foreach (var oldDisclaimer in oldDisclaimers)
+                {
+                    contexts.Add(new DisclaimerContext
+                    {
+                        DisclaimerId = oldDisclaimer.Id,
+                        ClientId = request.ClientId,
+                        Answers = new List<Answer>(),
+                        ReplacedWithNewerDisclaimer = true,
+                        Timestamp = DateTime.UtcNow
+                    });
+                }
 
-                await _repository.UpsertContexts(new () {disclaimerContext});
+                await _repository.UpsertContexts(contexts);
                 await _profilesRepository.ClearCache(request.ClientId);
                 return new OperationResponse()
                 {
@@ -80,7 +119,7 @@ namespace Service.DisclaimerEngine.Services
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "When submitting answers {request}", request);
+                _logger.LogError(e, "When submitting answers {request}", request.ToJson());
                 return new OperationResponse()
                 {
                     IsSuccess = false, 
@@ -91,7 +130,7 @@ namespace Service.DisclaimerEngine.Services
 
         public async Task<HasDisclaimersResponse> HasDisclaimers(HasDisclaimersRequest request)
         {
-            _logger.LogInformation("Checking disclaimers {request}", request);
+            _logger.LogInformation("Checking disclaimers {request}", request.ToJson());
             try
             {
                 var profile = await _profilesRepository.GetOrCreateProfile(request.ClientId);
@@ -102,7 +141,7 @@ namespace Service.DisclaimerEngine.Services
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "When checking disclaimers {request}", request);
+                _logger.LogError(e, "When checking disclaimers {request}", request.ToJson());
                 return new HasDisclaimersResponse()
                 {
                     HasDisclaimers = false, 
@@ -112,7 +151,7 @@ namespace Service.DisclaimerEngine.Services
         
         public async Task<GetDisclaimersResponse> GetDisclaimers(GetDisclaimersRequest request)
         {
-            _logger.LogInformation("Getting disclaimers {request}", request);
+            _logger.LogInformation("Getting disclaimers {request}", request.ToJson());
             try
             {
                 var disclaimers = await _disclaimerRepository.GetDisclaimersForUser(request.ClientId);
@@ -136,7 +175,7 @@ namespace Service.DisclaimerEngine.Services
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "When getting disclaimers {request}", request);
+                _logger.LogError(e, "When getting disclaimers {request}", request.ToJson());
                 return new GetDisclaimersResponse()
                 {
                     Disclaimers = new List<DisclaimerModel>(), 

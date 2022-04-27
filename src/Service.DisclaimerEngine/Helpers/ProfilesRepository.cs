@@ -34,7 +34,7 @@ namespace Service.DisclaimerEngine.Helpers
                 return entity.Profile;
             
             await using var ctx = new DatabaseContext(_dbContextOptionsBuilder.Options);
-            var disclaimers = await _disclaimerRepository.GetDisclaimersForNewUser();
+            var disclaimers = await _disclaimerRepository.GetDisclaimersForUser(clientId);
             var profile = new ClientDisclaimerProfile()
             {
                 ClientId = clientId,
