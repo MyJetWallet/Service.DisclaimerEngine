@@ -60,6 +60,9 @@ namespace Service.DisclaimerEngine.Services
                 
                 foreach (var answer in request.Answers)
                 {
+                    answer.DisclaimerId = disclaimer.Id;
+                    answer.ClientId = request.ClientId;
+                    
                     var question = disclaimer.Questions.FirstOrDefault(t => t.Id == answer.QuestionId);
                     if (question == null)
                         continue;
