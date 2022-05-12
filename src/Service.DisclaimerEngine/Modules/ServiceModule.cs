@@ -15,7 +15,7 @@ namespace Service.DisclaimerEngine.Modules
     {
         protected override void Load(ContainerBuilder builder)
         {
-            var myNoSqlClient = builder.CreateNoSqlClient((() => Program.Settings.MyNoSqlReaderHostPort));
+            var myNoSqlClient = builder.CreateNoSqlClient(Program.Settings.MyNoSqlReaderHostPort, Program.LogFactory);
 
             builder.RegisterMyNoSqlReader<DisclaimerSettingsNoSqlEntity>(myNoSqlClient, DisclaimerSettingsNoSqlEntity.TableName);
             
