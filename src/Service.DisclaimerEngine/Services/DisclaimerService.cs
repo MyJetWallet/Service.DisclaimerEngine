@@ -137,12 +137,12 @@ namespace Service.DisclaimerEngine.Services
             {
                 var profile = await _profilesRepository.GetOrCreateProfile(request.ClientId);
 	            
-				List<string> availableDisclaimers = profile.AvailableDisclaimers;
+				List<string> availableDisclaimerTypes = profile.AvailableDisclaimerTypes;
 
 	            return new HasDisclaimersResponse
                 {
-                    HasDisclaimers = availableDisclaimers.Any(disclaimer => DisclaimerTypeGroup.BaseDisclaimerTypes.Contains(disclaimer)),
-                    HasHighYieldDisclaimers = availableDisclaimers.Any(disclaimer => DisclaimerTypeGroup.HighYieldDisclaimerTypes.Contains(disclaimer)),
+                    HasDisclaimers = availableDisclaimerTypes.Any(disclaimerType => DisclaimerTypeGroup.BaseDisclaimerTypes.Contains(disclaimerType)),
+                    HasHighYieldDisclaimers = availableDisclaimerTypes.Any(disclaimerType => DisclaimerTypeGroup.HighYieldDisclaimerTypes.Contains(disclaimerType))
                 };
             }
             catch (Exception e)

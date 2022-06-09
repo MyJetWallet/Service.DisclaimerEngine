@@ -7,7 +7,6 @@ using MyNoSqlServer.Abstractions;
 using Service.DisclaimerEngine.Domain.Models;
 using Service.DisclaimerEngine.Domain.Models.NoSql;
 using Service.DisclaimerEngine.Postgres;
-using Service.DisclaimerEngine.Services;
 
 namespace Service.DisclaimerEngine.Helpers
 {
@@ -35,10 +34,10 @@ namespace Service.DisclaimerEngine.Helpers
             
             await using var ctx = new DatabaseContext(_dbContextOptionsBuilder.Options);
             var disclaimers = await _disclaimerRepository.GetDisclaimersForUser(clientId);
-            var profile = new ClientDisclaimerProfile()
+            var profile = new ClientDisclaimerProfile
             {
                 ClientId = clientId,
-                AvailableDisclaimers = disclaimers.Select(t => t.Id).ToList()
+                AvailableDisclaimerTypes = disclaimers.Select(t => t.Type).ToList()
             };
 
             await _writer.InsertOrReplaceAsync(DisclaimerProfileNoSqlEntity.Create(profile));
@@ -49,7 +48,6 @@ namespace Service.DisclaimerEngine.Helpers
         
         public async Task ClearCache(string clientId)
         {
-
             await _writer.DeleteAsync(DisclaimerProfileNoSqlEntity.GeneratePartitionKey(),
                 DisclaimerProfileNoSqlEntity.GenerateRowKey(clientId));
         }

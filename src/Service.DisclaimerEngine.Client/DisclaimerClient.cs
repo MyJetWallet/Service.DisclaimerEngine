@@ -31,13 +31,13 @@ public class DisclaimerClient : IDisclaimerService
 	    if (entity == null) 
 			return await _disclaimerServiceGrpc.HasDisclaimers(request);
 
-	    List<string> availableDisclaimers = entity.Profile.AvailableDisclaimers;
+	    List<string> availableDisclaimerTypes = entity.Profile.AvailableDisclaimerTypes;
 
 	    return new HasDisclaimersResponse
 	    {
-		    HasDisclaimers = availableDisclaimers.Any(disclaimer => DisclaimerTypeGroup.BaseDisclaimerTypes.Contains(disclaimer)),
-		    HasHighYieldDisclaimers = availableDisclaimers.Any(disclaimer => DisclaimerTypeGroup.HighYieldDisclaimerTypes.Contains(disclaimer)),
-	    };
+            HasDisclaimers = availableDisclaimerTypes.Any(disclaimerType => DisclaimerTypeGroup.BaseDisclaimerTypes.Contains(disclaimerType)),
+            HasHighYieldDisclaimers = availableDisclaimerTypes.Any(disclaimerType => DisclaimerTypeGroup.HighYieldDisclaimerTypes.Contains(disclaimerType))
+        };
     }
 
     public async Task<GetDisclaimersResponse> GetDisclaimers(GetDisclaimersRequest request) =>
