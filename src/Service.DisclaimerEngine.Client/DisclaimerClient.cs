@@ -1,6 +1,8 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyNoSqlServer.Abstractions;
+using Service.DisclaimerEngine.Domain.Models;
 using Service.DisclaimerEngine.Domain.Models.NoSql;
 using Service.DisclaimerEngine.Grpc;
 using Service.DisclaimerEngine.Grpc.Models;
@@ -26,13 +28,16 @@ public class DisclaimerClient : IDisclaimerService
         var entity = _reader.Get(DisclaimerProfileNoSqlEntity.GeneratePartitionKey(),
             DisclaimerProfileNoSqlEntity.GenerateRowKey(request.ClientId));
 
-        if (entity != null)
-            return new HasDisclaimersResponse()
-            {
-                HasDisclaimers = entity.Profile.AvailableDisclaimers.Any()
-            };
+	    if (entity == null) 
+			return await _disclaimerServiceGrpc.HasDisclaimers(request);
 
-        return await _disclaimerServiceGrpc.HasDisclaimers(request);
+	    List<string> availableDisclaimers = entity.Profile.AvailableDisclaimers;
+
+	    return new HasDisclaimersResponse
+	    {
+		    HasDisclaimers = availableDisclaimers.Any(disclaimer => DisclaimerTypeGroup.BaseDisclaimerTypes.Contains(disclaimer)),
+		    HasHighYieldDisclaimers = availableDisclaimers.Any(disclaimer => DisclaimerTypeGroup.HighYieldDisclaimerTypes.Contains(disclaimer)),
+	    };
     }
 
     public async Task<GetDisclaimersResponse> GetDisclaimers(GetDisclaimersRequest request) =>

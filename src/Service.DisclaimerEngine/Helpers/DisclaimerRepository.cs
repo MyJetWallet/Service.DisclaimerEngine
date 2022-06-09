@@ -18,11 +18,14 @@ namespace Service.DisclaimerEngine.Helpers
             _repository = repository;
         }
 
-        public async Task<List<Disclaimer>> GetDisclaimersForUser(string clientId)
+        public async Task<List<Disclaimer>> GetDisclaimersForUser(string clientId, string disclaimerType = null)
         {
             var disclaimerIds = await _repository.GetDisclaimerIdsWithoutClient(clientId);
             await using var context = new DatabaseContext(_dbContextOptionsBuilder.Options);
-            var disclaimers = await context.Disclaimers.Where(t => disclaimerIds.Contains(t.Id)).Include(t => t.Questions).ToListAsync();
+            var disclaimers = await context.Disclaimers
+				.Where(t => disclaimerIds.Contains(t.Id))
+	            .Where(t => disclaimerType == null || t.Type == disclaimerType)
+				.Include(t => t.Questions).ToListAsync();
             var selectedDisclaimers =  SelectLatestDisclaimers(disclaimers);
             return selectedDisclaimers;
         }

@@ -21,7 +21,6 @@ namespace Service.DisclaimerEngine.Services
 {
     public class DisclaimerService : IDisclaimerService
     {
-        
         private readonly DbContextOptionsBuilder<DatabaseContext> _dbContextOptionsBuilder;
         private readonly ILogger<DisclaimerService> _logger;
         private readonly ContextRepository _repository;
@@ -137,17 +136,23 @@ namespace Service.DisclaimerEngine.Services
             try
             {
                 var profile = await _profilesRepository.GetOrCreateProfile(request.ClientId);
-                return new HasDisclaimersResponse()
+	            
+				List<string> availableDisclaimers = profile.AvailableDisclaimers;
+
+	            return new HasDisclaimersResponse
                 {
-                    HasDisclaimers = profile.AvailableDisclaimers.Any()
+                    HasDisclaimers = availableDisclaimers.Any(disclaimer => DisclaimerTypeGroup.BaseDisclaimerTypes.Contains(disclaimer)),
+                    HasHighYieldDisclaimers = availableDisclaimers.Any(disclaimer => DisclaimerTypeGroup.HighYieldDisclaimerTypes.Contains(disclaimer)),
                 };
             }
             catch (Exception e)
             {
                 _logger.LogError(e, "When checking disclaimers {request}", request.ToJson());
-                return new HasDisclaimersResponse()
+
+                return new HasDisclaimersResponse
                 {
                     HasDisclaimers = false, 
+                    HasHighYieldDisclaimers = false
                 };
             }
         }
@@ -157,8 +162,8 @@ namespace Service.DisclaimerEngine.Services
             _logger.LogInformation("Getting disclaimers {request}", request.ToJson());
             try
             {
-                var disclaimers = await _disclaimerRepository.GetDisclaimersForUser(request.ClientId);
-
+                var disclaimers = await _disclaimerRepository.GetDisclaimersForUser(request.ClientId, request.DisclaimerType);
+                
                 var disclaimerModels = new List<DisclaimerModel>();
                 
                 var profile = await _clientProfileService.GetOrCreateProfile(new GetClientProfileRequest()
