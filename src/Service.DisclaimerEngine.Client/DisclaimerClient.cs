@@ -27,11 +27,13 @@ public class DisclaimerClient : IDisclaimerService
     {
         var entity = _reader.Get(DisclaimerProfileNoSqlEntity.GeneratePartitionKey(),
             DisclaimerProfileNoSqlEntity.GenerateRowKey(request.ClientId));
+        
+        List<string> availableDisclaimerTypes = entity?.Profile?.AvailableDisclaimerTypes;
 
-	    if (entity == null) 
+	    if (availableDisclaimerTypes == null) 
 			return await _disclaimerServiceGrpc.HasDisclaimers(request);
 
-	    List<string> availableDisclaimerTypes = entity.Profile.AvailableDisclaimerTypes;
+	    
 
 	    return new HasDisclaimersResponse
 	    {

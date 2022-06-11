@@ -27,11 +27,6 @@ namespace Service.DisclaimerEngine.Helpers
 
         public async Task<ClientDisclaimerProfile> GetOrCreateProfile(string clientId)
         {
-            var entity = await _writer.GetAsync(DisclaimerProfileNoSqlEntity.GeneratePartitionKey(),
-                DisclaimerProfileNoSqlEntity.GenerateRowKey(clientId));
-            if (entity != null)
-                return entity.Profile;
-            
             await using var ctx = new DatabaseContext(_dbContextOptionsBuilder.Options);
             var disclaimers = await _disclaimerRepository.GetDisclaimersForUser(clientId);
             var profile = new ClientDisclaimerProfile
@@ -43,6 +38,7 @@ namespace Service.DisclaimerEngine.Helpers
             await _writer.InsertOrReplaceAsync(DisclaimerProfileNoSqlEntity.Create(profile));
             await _writer.CleanAndKeepMaxRecords(DisclaimerProfileNoSqlEntity.GeneratePartitionKey(),
                 Program.Settings.MaxCachedEntities);
+            
             return profile;
         }
         
