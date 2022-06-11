@@ -26,7 +26,7 @@ namespace Service.DisclaimerEngine.Helpers
 
         public async Task UpsertContexts(List<DisclaimerContext> contexts)
         {
-            await _writer.BulkInsertOrReplaceAsync(contexts.Select(DisclaimerContextNoSqlEntity.Create));
+            await _writer.BulkInsertOrReplaceAsync(contexts.Select(DisclaimerContextNoSqlEntity.Create).ToList());
             await _writer.CleanAndKeepMaxPartitions(Program.Settings.MaxCachedEntities);
             
             await using var context = new DatabaseContext(_dbContextOptionsBuilder.Options);
